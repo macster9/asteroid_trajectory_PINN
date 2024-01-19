@@ -1,0 +1,5 @@
+/.venv/
+/.whls/
+/data/
+/.idea/
+/src/__pycache__/
