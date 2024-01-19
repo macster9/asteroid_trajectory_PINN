@@ -1,4 +1,4 @@
-esa_url = "https://neo.ssa.esa.int//o/PSDB-portlet/download?file="
+esa_url = "https://neo.ssa.esa.int//o/"
 data_storage = {
     "desig": [],
     "obs_y": [],
@@ -20,7 +20,10 @@ data_storage = {
 directories = {
     "data": {
         "core": "data",
-        "csvs": "data/csvs",
-        "txt": "data/txt"
+        "temp": {
+            "csvs": "csvs",
+            "obs": "obs_txt",
+            "eph": "eph_txt"
+        }
     }
 }
