@@ -3,7 +3,6 @@ from src.tools import *
 from tqdm import tqdm
 import pandas as pd
 import numpy as np
-import geopy.exc
 import requests
 import os
 

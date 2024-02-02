@@ -7,3 +7,5 @@
 To Do:
 Go through list and scrape Epherimedes for each asteroid and get the distances of asteroid from Sun and Earth.
 Then, make dataframes from these params and delete the old txt files. See help section for which is which.
+
+Results show that the optimum amount of time allowed between observations to determine distance to asteroid is 60 minutes.

@@ -5,4 +5,7 @@ matplotlib
 pandas
 requests
 tqdm
-geopy
+plotly
+dash
+scipy
+astropy

@@ -12,7 +12,7 @@ directories = {
 }
 
 space_scopes = ["spitzer", "hubble", "james webb"]
-
 omit_words = ["Observatory", "Observatorio", "Astronomical", "Astrophysical", "Observatoire", "Osservatorio"]
-
-time_threshold = 10800
+time_threshold = 60*60
+lamdba_ = 0.4
+r_earth = 6378137

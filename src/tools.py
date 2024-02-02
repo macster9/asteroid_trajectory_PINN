@@ -1,9 +1,16 @@
 from geopy.geocoders import Nominatim
 from src.config import *
+import datetime
 import numpy as np
 
 
-def get_lat_long(location):
+def get_lat_long(df, row):
+    code = row["obs_code"]
+    observatory = df.loc[df["code"] == code]
+    return round(observatory["latitude"].values[0], 3), round(observatory["longitude"].values[0], 3)
+
+
+def get_lat_long_deprecated(location):
     """
     Function to get the lat and long of location from the name of an observatory site only.
     :param location: location name
@@ -109,6 +116,7 @@ def get_eph_portal(designation: int, obs_code, t_ini, t_end, dt, dt_unit):
     """
     return f"PSDB-portlet/ephemerides?des={str(designation)}&oc={obs_code}&t0={t_ini}&t1={t_end}&ti={dt}&tiu={dt_unit}"
 
+
 def datetime_str(yyyy, mo, dd, hh, mi):
     """
     Converts strings of date objects to a datetime format.
@@ -135,6 +143,16 @@ def datetime_str_deprecated(yyyy, mo, dd, hh, mi):
     return f"{int(yyyy)}-{str(int(mo)).zfill(2)}-{str(int(dd)).zfill(2)}T{str(hh).zfill(2)}:{str(mi).zfill(2)}Z"
 
 
+def get_timestamp(row, index, anomalies):
+    try:
+        hrs, mins = get_hrs_minutes(row)
+    except ValueError:
+        anomalies.append([index, row["desig"]])
+        return None
+    time_string = datetime_str(row["obs_y"], row["obs_m"], row["obs_d"], hrs, mins)
+    return datetime.datetime.strptime(time_string, "%Y %m %d %H %S").timestamp()
+
+
 def get_hrs_minutes_eph(first_last_observation_df):
     """
     Converts decimal after day float into hh, mm
@@ -159,8 +177,8 @@ def get_hrs_minutes(dataframe):
 
 
 def ra_to_deg(hh, mm, ss):
-    return (np.float32(hh) + np.float32(mm)/60 + np.float32(ss/3600))*15
+    return ((np.float32(hh) + np.float32(mm) / 60 + np.float32(ss / 3600)) * 15) - 90
 
 
 def dec_to_deg(dd, mm, ss):
-    return (np.float32(dd) + np.float32(mm)/60 + np.float32(ss)/3600)+90
+    return np.float32(dd) + np.float32(mm) / 60 + np.float32(ss) / 3600
