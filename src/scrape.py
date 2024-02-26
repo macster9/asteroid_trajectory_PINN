@@ -1,53 +1,71 @@
-import requests
-import pandas as pd
-import os
-from src.config import *
-import numpy as np
+import urllib3.exceptions
+from src.tools import *
 from tqdm import tqdm
+import pandas as pd
+import numpy as np
+import requests
+import os
 
 
-def scrape_asteroids():
+def get_observations():
+    """
+    Gets a list of all observations of asteroids on ESA NEO record. Contains RA & DEC but no Distance.
+    :return: Print statement.
+    """
     search_results = pd.read_csv("data/searchResult.csv")
     for obj in tqdm(search_results["Object designation"], desc="Scraping Files: "):
-        designation_url = esa_url + obj + ".rwo"
+        designation_url = esa_url + "PSDB-portlet/download?file=" + obj + ".rwo"
         r = requests.get(designation_url, allow_redirects=True)
-        with open(os.path.join(directories["data"]["txt"], obj + ".txt"), "wb") as file:
+        with open(os.path.join(get_path("data/temp", directories["data"]["temp"]["obs"]), obj + ".txt"), "wb") as file:
             file.write(r.content)
-    return None
+    return print("Observations downloaded.")
 
 
-def convert_asteroid_file():
-    for file in tqdm(os.listdir(directories["data"]["txt"]), desc="Saving to CSVs"):
-        with open(os.path.join(directories["data"]["txt"], file), "rb") as asteroid_data:
-            data = asteroid_data.readlines()
-            for line in data:
-                if "." not in line[56:64].decode("ascii").strip():
-                    continue
-                data_storage["desig"].append(line[:11].decode("ascii").strip())
-                data_storage["obs_y"].append(line[17:21].decode("ascii").strip())
-                data_storage["obs_m"].append(line[22:24].decode("ascii").strip())
-                data_storage["obs_d"].append(line[25:40].decode("ascii").strip())
-                data_storage["time_acc"].append(line[40:49].decode("ascii").strip())
-                data_storage["RA_h"].append(line[50:52].decode("ascii").strip())
-                data_storage["RA_m"].append(line[53:55].decode("ascii").strip())
-                data_storage["RA_s"].append(line[56:64].decode("ascii").strip())
-                data_storage["RA_acc"].append(line[64:77].decode("ascii").strip())
-                data_storage["RA_RMS"].append(line[77:82].decode("ascii").strip())
-                data_storage["DEC_d"].append(line[103:107].decode("ascii").strip())
-                data_storage["DEC_m"].append(line[107:110].decode("ascii").strip())
-                data_storage["DEC_s"].append(line[110:117].decode("ascii").strip())
-                data_storage["DEC_acc"].append(line[117:126].decode("ascii").strip())
-                data_storage["DEC_RMS"].append(line[130:136].decode("ascii").strip())
-            df = pd.DataFrame(data_storage)
-            df.to_csv(os.path.join(directories["data"]["csvs"], file[:-4].replace(" ", "_") + ".csv"))
-    return None
+def get_observatory_list():
+    """
+    Scrapes the list of observatories asteroid observations are made from and stores code/lat/long in observatories.csv
+     in data directory.
+
+     Approximating geocentric distance of observatories in Earth radii to be ~1, then computing arccos of parallax
+     constant to get the geocentric latitude.
+    :return: Print statement.
+    """
+    observatory_db = requests.get("https://minorplanetcenter.net/iau/lists/ObsCodes.html").content.split(b"\n")[2:-2]
+    data = []
+    for line in tqdm(observatory_db, desc="Scrape Locations..."):
+        code = line[:3].decode("ascii")
+        loc = line[30:].decode("ascii")
+        long = line[5:13].decode("ascii")
+        if line[13:21].decode("ascii") == "        ":
+            continue
+        lat = np.rad2deg(np.arccos(np.float64(line[13:21].decode("ascii"))))
+        data.append([code, loc, long, lat])
+    pd.DataFrame(data, columns=["code", "location", "longitude", "latitude"]).to_csv(
+        os.path.join(get_path("core", directories["data"]), "observatories.csv")
+    )
+    return print("List of Observatories downloaded.")
 
 
-def read_asteroid_csvs():
-    df = pd.read_csv("1566 Icarus_phypro.csv")
-    print(df)
-    # for file in tqdm(os.listdir(directories["data"]["csvs"]), desc="Reading CSVs..."):
-    #     df = pd.read_csv(os.path.join(directories["data"]["csvs"], file))
-    #     print(file)
-    #     print(df)
-    #     exit()
+def get_ephemerides():
+    """
+    Gets the ephemerides of all asteroids on ESA NEO record. Contains RA, DEC, and Distance.
+    :return: Print statement.
+    """
+    for file in tqdm(os.listdir(get_path("data/temp", directories["data"]["temp"]["csvs"])), desc="Reading CSVs..."):
+        df = pd.read_csv(os.path.join(get_path("data/temp", directories["data"]["temp"]["csvs"]), file))
+        first_obs = df.iloc[0]
+        last_obs = df.iloc[-1]
+        designation = int(first_obs["desig"])
+        observation_code = 500  # geocentric observatory
+        ini_time, fin_time = get_hrs_minutes_eph(df)
+        t_ini = datetime_str(first_obs["obs_y"], first_obs["obs_m"], first_obs["obs_d"], ini_time[0], ini_time[1])
+        t_end = datetime_str(last_obs["obs_y"], last_obs["obs_m"], last_obs["obs_d"], fin_time[0], fin_time[1])
+        dt = 30
+        dt_unit = "days"
+        ephemerides_url = esa_url + get_eph_portal(designation, observation_code, t_ini, t_end, dt, dt_unit)
+        r = requests.get(ephemerides_url, allow_redirects=True)
+        with open(os.path.join(get_path(
+                "data/temp", directories["data"]["temp"]["eph"]),
+                file[:-3] + "txt"), "wb") as new_file:
+            new_file.write(r.content)
+        return print("Ephemerides downloaded.")
