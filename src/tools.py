@@ -1,6 +1,8 @@
 from geopy.geocoders import Nominatim
 from src.config import *
 import datetime
+import os
+import shutil
 import numpy as np
 
 
@@ -182,3 +184,7 @@ def ra_to_deg(hh, mm, ss):
 
 def dec_to_deg(dd, mm, ss):
     return np.float32(dd) + np.float32(mm) / 60 + np.float32(ss) / 3600
+
+
+def delete_temp_files():
+    return shutil.rmtree("data/temp")

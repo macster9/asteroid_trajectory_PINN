@@ -1,6 +1,8 @@
+import datetime
+
 import astropy
 from tqdm.auto import tqdm, trange
-from src.config import directories, time_threshold, r_earth
+from src.config import directories, time_threshold, r_earth, km_in_au
 from src.tools import get_path, get_timestamp, get_lat_long, ra_to_deg, dec_to_deg
 import json
 import pandas as pd
@@ -12,6 +14,8 @@ import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 from astropy.time import Time
+import matplotlib.pyplot as plt
+import pickle
 
 
 def convert_asteroid_file():
@@ -70,12 +74,14 @@ def convert_asteroid_file():
 
 
 def get_distance(threshold=time_threshold):
+    fig = plt.figure()
+    ax = fig.add_subplot(projection="3d")
     count = []
     observatories = pd.read_csv("data/observatories.csv")
     # observatories.index = observatories["code"]
     anomalies = []
     old_row = None
-    observations = []
+    observations = {}
     for file in tqdm(os.listdir("data/temp/csvs/"), desc=f"Getting Distances... threshold: {threshold/60/60}hrs"):
         counter = 0
         df = pd.read_csv(os.path.join("data/temp/csvs", file))
@@ -99,7 +105,7 @@ def get_distance(threshold=time_threshold):
                         x, y, z = calculate_distance(coords1, coords2, row, old_row)
                         if type(x) == str:
                             continue
-                        # print(x, y, z)
+                        observations[file[:-4]] = [x.value[0], y.value[0], z.value[0], timestamp_new]
             code = row["obs_code"]
             if int(row["obs_y"]) > 1970:
                 timestamp_old = get_timestamp(row, index, anomalies)
@@ -110,6 +116,8 @@ def get_distance(threshold=time_threshold):
                 old_row = None
                 continue
         count.append(counter)
+    with open("data/asteroid_data.pkl", "wb") as pickle_file:
+        pickle.dump(observations, pickle_file)
     return count
 
 
@@ -152,3 +160,31 @@ def get_stats(data, lambda_=0.1):
     aggregate = sum(norm_data)
     range_ = round(min(norm_data), 3), round(max(norm_data), 3)
     return mean, med, st_dev, aggregate, range_
+
+
+def sort_ephemerides():
+    eph = {}
+    num_obs = []
+    for file in tqdm(os.listdir("data/temp/eph_txt/"), desc=f"Getting Ephemerides..."):
+        with open(os.path.join("data/temp/eph_txt", file), "r") as eph_file:
+            lines = eph_file.readlines()[9:-2]
+            observation = []
+            for line in tqdm(lines, colour="red", desc=f"{file[:-4]}", leave=False):
+                solar_r = float(line[131:136])*u.au
+                g_lat = np.deg2rad(float(line[117:122]))*u.rad
+                g_long = np.deg2rad(float(line[123:128]))*u.rad
+                mjd = float(line[20:32])
+                t = astropy.time.Time(mjd + 2400000.5, format='jd')
+                utc = t.to_datetime()
+                galactic_coords = SkyCoord(l=g_long, b=g_lat, distance=solar_r, frame='galactic').transform_to("hcrs")
+                x, y, z = galactic_coords.cartesian.x.value * km_in_au, \
+                          galactic_coords.cartesian.y.value * km_in_au, \
+                          galactic_coords.cartesian.z.value * km_in_au
+                observation.append([x, y, z, utc])
+            eph[file[:-4]] = observation
+            num_obs.append([observation[0][-1], observation[-1][-1]])
+    with open("data/ephemerides_data.pkl", "wb") as eph_pickle:
+        pickle.dump(eph, eph_pickle)
+    return num_obs
+
+

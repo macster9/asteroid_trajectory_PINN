@@ -22,7 +22,7 @@ def plot_hist():
     )
     def display_hist(idx):
 
-        with open("data/sample.json", "r") as infile:
+        with open("data/nb_observations.json", "r") as infile:
             dictionary = json.load(infile)
         orig_data = dictionary[str(int(idx*60*60))]
 

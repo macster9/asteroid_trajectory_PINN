@@ -9,3 +9,5 @@ Go through list and scrape Epherimedes for each asteroid and get the distances o
 Then, make dataframes from these params and delete the old txt files. See help section for which is which.
 
 Results show that the optimum amount of time allowed between observations to determine distance to asteroid is 60 minutes.
+
+For ephemerides function, the warning about "dubious year" is generated because we are predicting years/time in the future for whatever reason, and therefore cannot trust it.

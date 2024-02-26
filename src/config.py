@@ -16,3 +16,4 @@ omit_words = ["Observatory", "Observatorio", "Astronomical", "Astrophysical", "O
 time_threshold = 60*60
 lamdba_ = 0.4
 r_earth = 6378137
+km_in_au = 149597870.7
