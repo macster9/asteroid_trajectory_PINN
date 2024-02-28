@@ -9,3 +9,6 @@ plotly
 dash
 scipy
 astropy
+jupyterlab
+jupyterlab-vpython
+vpython==7.6.3
