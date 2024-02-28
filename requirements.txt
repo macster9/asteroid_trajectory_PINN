@@ -12,3 +12,6 @@ astropy
 jupyterlab
 jupyterlab-vpython
 vpython==7.6.3
+jupyterlab-dash
+dash
+geopy

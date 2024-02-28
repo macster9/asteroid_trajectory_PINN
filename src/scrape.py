@@ -1,8 +1,9 @@
 import urllib3.exceptions
 from src.tools import *
-from tqdm import tqdm
+from tqdm.auto import tqdm
 import pandas as pd
 import numpy as np
+import warnings
 import requests
 import os
 
@@ -38,10 +39,12 @@ def get_observatory_list():
         long = line[5:13].decode("ascii")
         if line[13:21].decode("ascii") == "        ":
             continue
-        lat = np.rad2deg(np.arccos(np.float64(line[13:21].decode("ascii"))))
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=RuntimeWarning)
+            lat = np.rad2deg(np.arccos(np.float64(line[13:21].decode("ascii"))))
         data.append([code, loc, long, lat])
     pd.DataFrame(data, columns=["code", "location", "longitude", "latitude"]).to_csv(
-        os.path.join(get_path("core", directories["data"]), "observatories.csv")
+        os.path.join("data", "observatories.csv")
     )
     return print("List of Observatories downloaded.")
 
@@ -55,11 +58,11 @@ def get_ephemerides():
         df = pd.read_csv(os.path.join(get_path("data/temp", directories["data"]["temp"]["csvs"]), file))
         first_obs = df.iloc[0]
         last_obs = df.iloc[-1]
-        designation = int(first_obs["desig"])
+        designation = first_obs["desig"]
         observation_code = 500  # geocentric observatory
         ini_time, fin_time = get_hrs_minutes_eph(df)
-        t_ini = datetime_str(first_obs["obs_y"], first_obs["obs_m"], first_obs["obs_d"], ini_time[0], ini_time[1])
-        t_end = datetime_str(last_obs["obs_y"], last_obs["obs_m"], last_obs["obs_d"], fin_time[0], fin_time[1])
+        t_ini = ephemerides_datetime(first_obs["obs_y"], first_obs["obs_m"], first_obs["obs_d"], ini_time[0], ini_time[1])
+        t_end = ephemerides_datetime(last_obs["obs_y"], last_obs["obs_m"], last_obs["obs_d"], fin_time[0], fin_time[1])
         dt = 30
         dt_unit = "days"
         ephemerides_url = esa_url + get_eph_portal(designation, observation_code, t_ini, t_end, dt, dt_unit)
@@ -68,4 +71,4 @@ def get_ephemerides():
                 "data/temp", directories["data"]["temp"]["eph"]),
                 file[:-3] + "txt"), "wb") as new_file:
             new_file.write(r.content)
-        return print("Ephemerides downloaded.")
+    return print("Ephemerides downloaded.")
