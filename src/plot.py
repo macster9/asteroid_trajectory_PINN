@@ -16,8 +16,8 @@ def plot_hist():
         html.H4('Number of Asteroid Observations'),
         dcc.Graph(id="graph"),
         html.P("Threshold (hrs):"),
-        dcc.Slider(id="idx", min=0.25, max=24, value=0.25, step=0.25,
-                   marks={0.25: '0.25', 24: '24'}, tooltip={'always_visible': True})
+        dcc.Slider(id="idx", min=0.25, max=12, value=0.25, step=0.25,
+                   marks={0.25: '0.25', 24: '12'}, tooltip={'always_visible': True})
     ])
 
     @app.callback(

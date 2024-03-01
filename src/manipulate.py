@@ -83,7 +83,6 @@ def get_distance(threshold=time_threshold, save=True):
     """
     count = []
     observatories = pd.read_csv("data/observatories.csv")
-    # observatories.index = observatories["code"]
     anomalies = []
     old_row = None
     observations = {}
@@ -92,7 +91,7 @@ def get_distance(threshold=time_threshold, save=True):
         df = pd.read_csv(os.path.join("data/temp/csvs", file))
         code = ""
         timestamp_old = 0
-        for index, row in df.iterrows():
+        for index, row in tqdm(df.iterrows(), colour="red", desc=f"{file[:-4]}: ", leave=False):
             if code != row["obs_code"]:
                 if (code in observatories["code"].to_numpy()) and (row["obs_code"] in observatories["code"].to_numpy()):
                     if int(row["obs_y"]) < 1970:
@@ -104,13 +103,17 @@ def get_distance(threshold=time_threshold, save=True):
                     if dt < threshold:
                         coords1 = get_lat_long(observatories, old_row)
                         coords2 = get_lat_long(observatories, row)
-                        if coords1 == coords2:
+                        if np.isnan([coords1, coords2]).any() or coords1 == coords2:
                             continue
                         counter += 1
                         x, y, z = calculate_distance(coords1, coords2, row, old_row)
-                        if type(x) == str:
+
+                        if np.isnan([x, y, z]).any():
                             continue
-                        observations[file[:-4]] = [x.value[0], y.value[0], z.value[0], timestamp_new]
+                        try:
+                            observations[file[:-4]].append([x, y, z, timestamp_new])
+                        except KeyError:
+                            observations[file[:-4]] = [[x, y, z, timestamp_new]]
             code = row["obs_code"]
             if int(row["obs_y"]) > 1970:
                 timestamp_old = get_timestamp(row, index, anomalies)
@@ -127,6 +130,22 @@ def get_distance(threshold=time_threshold, save=True):
     return count
 
 
+def altitude(coords, row, obstime):
+    """
+    Calculates Alt/Az coordinates of asteroid
+    :param coords: lat/long of observation
+    :param row: dataframe row - supplies RA & DEC
+    :param obstime: Time of observation
+    :return: The angle above the horizon the asteroid is observed in radians.
+    """
+    loc = astropy.coordinates.EarthLocation(lat=coords[0], lon=coords[1])
+    aa = astropy.coordinates.AltAz(location=loc, obstime=obstime)
+    asteroid1 = SkyCoord(ra=ra_to_deg(row["RA_h"], row["RA_m"], row["RA_s"]) * u.degree,
+                         dec=dec_to_deg(row["DEC_d"], row["DEC_m"], row["DEC_s"]) * u.degree,
+                         obstime=obstime).transform_to(aa)
+    return np.rad2deg((asteroid1.alt.hour * np.pi) / 12)
+
+
 def calculate_distance(coords1, coords2, row, old_row):
     """
     Calculation of the distance to an object given 2 observations.
@@ -136,27 +155,31 @@ def calculate_distance(coords1, coords2, row, old_row):
     :param old_row: Row in dataframe for all information of second observation.
     :return: X, Y, Z heliocentric cartesian co-ordinates of asteroid for this observation.
     """
-    try:
-        geodesic_distance = geopy.distance.geodesic(coords1, coords2).m
-        theta = np.deg2rad((360 * geodesic_distance) / (2 * np.pi * r_earth))
-        distance = 2 * r_earth * np.sin(theta / 2)
-        ra_sep = ra_to_deg(row["RA_h"], row["RA_m"], row["RA_s"]) - ra_to_deg(old_row["RA_h"], old_row["RA_m"],
-                                                                              old_row["RA_s"])
-        dec_sep = dec_to_deg(row["DEC_d"], row["DEC_m"], row["DEC_s"]) - dec_to_deg(old_row["DEC_d"], old_row["DEC_m"],
-                                                                                    old_row["DEC_s"])
-        ang_sep = np.sqrt(ra_sep ** 2 + dec_sep ** 2)
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", category=RuntimeWarning)
-            asteroid_distance = distance / ang_sep
+    geodesic_distance = geopy.distance.geodesic(coords1, coords2).m
+    theta = np.deg2rad((360 * geodesic_distance) / (2 * np.pi * r_earth))
+    distance = 2 * r_earth * np.sin(theta / 2)
+    obstime = Time(f"{row['obs_y']}-{row['obs_m']}-{int(float(row['obs_d']))}")
+    alt1 = np.deg2rad(altitude(coords1, row, obstime) - 90)
+    alt2 = np.deg2rad(altitude(coords2, old_row, obstime) - 90)
+    if np.diff([np.rad2deg(alt1), np.rad2deg(alt2)]) > 1.0:
+        return np.nan, np.nan, np.nan
+    baseline = abs(np.cos(alt1)*distance)
+    ra_sep = ra_to_deg(row["RA_h"], row["RA_m"], row["RA_s"]) - ra_to_deg(old_row["RA_h"], old_row["RA_m"],
+                                                                          old_row["RA_s"])
+    dec_sep = dec_to_deg(row["DEC_d"], row["DEC_m"], row["DEC_s"]) - dec_to_deg(old_row["DEC_d"], old_row["DEC_m"],
+                                                                                old_row["DEC_s"])
+    ang_sep = np.sqrt(ra_sep ** 2 + dec_sep ** 2)
+
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=RuntimeWarning)
+        asteroid_distance = baseline / ang_sep
         asteroid = SkyCoord(ra=ra_to_deg(row["RA_h"], row["RA_m"], row["RA_s"]) * u.degree,
                             dec=dec_to_deg(row["DEC_d"], row["DEC_m"], row["DEC_s"]) * u.degree,
                             distance=asteroid_distance * u.km,
                             frame="gcrs",
-                            obstime=[Time(f"{row['obs_y']}-{row['obs_m']}-{int(row['obs_d'])}")]).transform_to(
+                            obstime=obstime).transform_to(
             frame="hcrs")
-    except (RuntimeError, RuntimeWarning, ValueError):
-        return "0", "0", "0"
-    return asteroid.cartesian.x, asteroid.cartesian.y, asteroid.cartesian.z
+    return asteroid.cartesian.x.value, asteroid.cartesian.y.value, asteroid.cartesian.z.value
 
 
 def collect_data(minimum=0.25, maximum=12, step=0.25):
