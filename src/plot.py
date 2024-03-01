@@ -6,14 +6,18 @@ from src.manipulate import get_stats
 
 
 def plot_hist():
+    """
+    plots histogram of multiple observation time thresholds.
+    :return: Histogram plotted in-browser.
+    """
     app = Dash(__name__)
 
     app.layout = html.Div([
         html.H4('Number of Asteroid Observations'),
         dcc.Graph(id="graph"),
         html.P("Threshold (hrs):"),
-        dcc.Slider(id="idx", min=0.25, max=24, value=0.25, step=0.25,
-                   marks={0.25: '0.25', 24: '24'}, tooltip={'always_visible': True})
+        dcc.Slider(id="idx", min=0.25, max=12, value=0.25, step=0.25,
+                   marks={0.25: '0.25', 24: '12'}, tooltip={'always_visible': True})
     ])
 
     @app.callback(
@@ -21,8 +25,13 @@ def plot_hist():
         Input("idx", "value")
     )
     def display_hist(idx):
+        """
+        displays plot in browser.
+        :param idx: index
+        :return: figure
+        """
 
-        with open("data/nb_observations.json", "r") as infile:
+        with open("data/sample.json", "r") as infile:
             dictionary = json.load(infile)
         orig_data = dictionary[str(int(idx*60*60))]
 

@@ -7,6 +7,12 @@ import numpy as np
 
 
 def get_lat_long(df, row):
+    """
+    Gets the latitude and longitude of an observatory.
+    :param df: dataframe
+    :param row: row in dataframe
+    :return: rounded latitude and longitude to 3 decimal places.
+    """
     code = row["obs_code"]
     observatory = df.loc[df["code"] == code]
     return round(observatory["latitude"].values[0], 3), round(observatory["longitude"].values[0], 3)
@@ -72,6 +78,7 @@ def gen_dict_extract(key, var, path=""):
     """
     if path == "":
         path = key
+        yield key
     if key == "core":
         yield var[key]
     if hasattr(var, 'items'):
@@ -98,7 +105,7 @@ def get_path(path, directory):
     :type directory: dictionary index
     :return: the following iteration through the gen_dict_extract iterator.
     """
-    return next(gen_dict_extract(path, directory))
+    return os.path.join(next(gen_dict_extract(path, directory)), directory)
 
 
 def get_eph_portal(designation: int, obs_code, t_ini, t_end, dt, dt_unit):
@@ -132,7 +139,7 @@ def datetime_str(yyyy, mo, dd, hh, mi):
     return f"{int(yyyy)} {str(int(mo)).zfill(2)} {str(int(float(dd))).zfill(2)} {str(hh).zfill(2)} {str(mi).zfill(2)}"
 
 
-def datetime_str_deprecated(yyyy, mo, dd, hh, mi):
+def ephemerides_datetime(yyyy, mo, dd, hh, mi):
     """
     Converts strings of date objects to a datetime format.
     :param yyyy: Year
@@ -142,10 +149,17 @@ def datetime_str_deprecated(yyyy, mo, dd, hh, mi):
     :param mi: Minute
     :return: Datetime string
     """
-    return f"{int(yyyy)}-{str(int(mo)).zfill(2)}-{str(int(dd)).zfill(2)}T{str(hh).zfill(2)}:{str(mi).zfill(2)}Z"
+    return f"{int(yyyy)}-{str(int(mo)).zfill(2)}-{str(int(float(dd))).zfill(2)}T{str(hh).zfill(2)}:{str(mi).zfill(2)}Z"
 
 
 def get_timestamp(row, index, anomalies):
+    """
+    Retrieves timestamp of a given time of an observation.
+    :param row: row in dataset corresponding to an observation
+    :param index: index of row
+    :param anomalies: list of anomalies.
+    :return: Timestamp.
+    """
     try:
         hrs, mins = get_hrs_minutes(row)
     except ValueError:
@@ -157,21 +171,27 @@ def get_timestamp(row, index, anomalies):
 
 def get_hrs_minutes_eph(first_last_observation_df):
     """
-    Converts decimal after day float into hh, mm
+    Converts decimal after day float into hh, mm and puts into ephemerides format.
     :param first_last_observation_df: dataframe of the first and last observation of an asteroid
-    :return: two lists of initial observation hrs and minutes and final observation hrs and minutes.
+    :return: two lists of initial observation hrs and minutes and final observation hrs and minutes in ephemerides
+    format.
     """
-    ini_days = first_last_observation_df["obs_d"].iloc[0]
+    ini_days = float(first_last_observation_df["obs_d"].iloc[0])
     ini_hrs = int((ini_days - int(ini_days)) * 24)
     ini_minutes = int((((ini_days - int(ini_days)) * 24) - int((ini_days - int(ini_days)) * 24)) * 60)
 
-    fin_days = first_last_observation_df["obs_d"].iloc[-1]
+    fin_days = float(first_last_observation_df["obs_d"].iloc[-1])
     fin_hrs = int((fin_days - int(fin_days)) * 24)
     fin_minutes = int((((fin_days - int(fin_days)) * 24) - int((fin_days - int(fin_days)) * 24)) * 60)
     return [ini_hrs, ini_minutes], [fin_hrs, fin_minutes]
 
 
 def get_hrs_minutes(dataframe):
+    """
+    Converts decimal after day float into hh, mm
+    :param dataframe: dataframe of the first and last observation of an asteroid
+    :return: two lists of initial observation hrs and minutes and final observation hrs and minutes.
+    """
     days = float(dataframe["obs_d"])
     hrs = int((days - int(days)) * 24)
     mins = int((((days - int(days)) * 24) - int((days - int(days)) * 24)) * 60)
@@ -179,12 +199,22 @@ def get_hrs_minutes(dataframe):
 
 
 def ra_to_deg(hh, mm, ss):
+    """
+    Right ascension to degrees calculation.
+    :param hh: archours
+    :param mm: arcminutes
+    :param ss: arcseconds
+    :return: degrees
+    """
     return ((np.float32(hh) + np.float32(mm) / 60 + np.float32(ss / 3600)) * 15) - 90
 
 
 def dec_to_deg(dd, mm, ss):
+    """
+    Declination to degrees calculation.
+    :param dd: degrees
+    :param mm: arcminutes
+    :param ss: arcseconds
+    :return: degrees
+    """
     return np.float32(dd) + np.float32(mm) / 60 + np.float32(ss) / 3600
-
-
-def delete_temp_files():
-    return shutil.rmtree("data/temp")

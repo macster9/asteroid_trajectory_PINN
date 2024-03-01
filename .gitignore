@@ -3,3 +3,6 @@
 /data/
 /.idea/
 /src/__pycache__/
+/src/.ipynb_checkpoints/
+/src/notebooks/__pycache__/
+/src/notebooks/.ipynb_checkpoints/

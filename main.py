@@ -1,7 +1,7 @@
-from src.manipulate import *
-from src.scrape import *
-from src.plot import *
-
-
 if __name__ == "__main__":
-    delete_temp_files()
+    # import pickle
+    # with open('data/asteroid_data.pkl', "rb") as file:
+    #     data = pickle.load(file)
+    #     print(data)
+    from src import manipulate
+    manipulate.get_distance()

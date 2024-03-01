@@ -1,5 +1,4 @@
 esa_url = "https://neo.ssa.esa.int//o/"
-
 directories = {
     "data": {
         "core": "data",
@@ -10,7 +9,6 @@ directories = {
         }
     }
 }
-
 space_scopes = ["spitzer", "hubble", "james webb"]
 omit_words = ["Observatory", "Observatorio", "Astronomical", "Astrophysical", "Observatoire", "Osservatorio"]
 time_threshold = 60*60
